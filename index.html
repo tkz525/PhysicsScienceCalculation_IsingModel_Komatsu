@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Ising Model & Finite Size Scaling Simulator</title>
+    <!-- Google Fonts for premium look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN for interactive scientific charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="logo-container">
+                <div class="logo-orb"></div>
+                <h1>2Dイジング模型 <span>モンテカルロ・シミュレータ</span></h1>
+            </div>
+            <div class="server-status">
+                <span class="status-indicator online"></span>
+                <span class="status-text">サーバー: オンライン</span>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <div class="app-layout">
+            <!-- SIDEBAR: SIMULATION SETTINGS -->
+            <aside class="sidebar-card">
+                <h2><span class="icon">⚙️</span> シミュレーション設定</h2>
+                <form id="settings-form">
+                    <div class="form-group">
+                        <label for="l-range-input">格子サイズ L (複数指定可)</label>
+                        <input type="text" id="l-range-input" value="8, 12, 16, 24" placeholder="例: 8, 12, 16, 24">
+                        <small class="form-help">カンマ区切りで入力します。FSS解析で比較されます。</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="t-start-input">開始温度 T_start</label>
+                            <input type="number" id="t-start-input" value="1.5" step="0.1" min="0.1" max="10">
+                        </div>
+                        <div class="form-group col">
+                            <label for="t-end-input">終了温度 T_end</label>
+                            <input type="number" id="t-end-input" value="3.0" step="0.1" min="0.1" max="10">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label for="t-step-input">温度刻み T_step</label>
+                            <input type="number" id="t-step-input" value="0.05" step="0.01" min="0.01" max="1">
+                        </div>
+                        <div class="form-group col">
+                            <label for="mcs-input">測定ステップ数 (MCS)</label>
+                            <input type="number" id="mcs-input" value="2000" step="100" min="10">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="eq-input">緩和ステップ数 (Equilibration)</label>
+                        <input type="number" id="eq-input" value="1000" step="100" min="0">
+                        <small class="form-help">測定前に熱平衡に達するためのステップ数です。</small>
+                    </div>
+
+                    <button type="submit" id="run-simulation-btn" class="btn btn-primary btn-glow">
+                        <span class="btn-text">🚀 シミュレーション実行</span>
+                    </button>
+                </form>
+
+                <div class="progress-container hidden" id="simulation-progress-container">
+                    <div class="progress-header">
+                        <span id="progress-status-label">実行中...</span>
+                        <span id="progress-percentage-label">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="simulation-progress-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="progress-details" id="progress-details-label">
+                        L = 8 | T = 1.50
+                    </div>
+                </div>
+            </aside>
+
+            <!-- MAIN PANEL: TABS & RESULTS -->
+            <main class="main-content">
+                <!-- TAB NAVIGATION -->
+                <nav class="tab-nav">
+                    <button class="tab-btn active" data-tab="live-tab">
+                        <span class="tab-icon">🌐</span> リアルタイム表示
+                    </button>
+                    <button class="tab-btn" data-tab="quantities-tab">
+                        <span class="tab-icon">📊</span> 物理量測定結果
+                    </button>
+                    <button class="tab-btn" data-tab="fss-tab">
+                        <span class="tab-icon">📐</span> 有限サイズスケーリング (FSS)
+                    </button>
+                    <button class="tab-btn" data-tab="scaling-tab">
+                        <span class="tab-icon">⚡</span> 計算量 O(L²) 検証
+                    </button>
+                    <button class="tab-btn" data-tab="tests-tab">
+                        <span class="tab-icon">🧪</span> ユニットテスト
+                    </button>
+                </nav>
+
+                <!-- TAB PANELS -->
+                <div class="tab-panels">
+                    
+                    <!-- TAB 1: LIVE SIMULATION -->
+                    <div class="tab-panel active" id="live-tab">
+                        <div class="panel-header">
+                            <h3>スピン格子のリアルタイム熱運動</h3>
+                            <p>温度変化に応じたスピンの相変化（強磁性秩序から常磁性無秩序）を可視化します。</p>
+                        </div>
+                        <div class="live-simulator-layout">
+                            <div class="canvas-container">
+                                <canvas id="ising-canvas" width="384" height="384"></canvas>
+                                <div class="canvas-overlay hidden" id="canvas-loading">
+                                    <div class="spinner"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="live-controls">
+                                <div class="live-card">
+                                    <h4>シミュレーション制御</h4>
+                                    <div class="form-group">
+                                        <label for="live-l-select">格子サイズ L</label>
+                                        <select id="live-l-select" class="form-select">
+                                            <option value="16">16 x 16</option>
+                                            <option value="32" selected>32 x 32</option>
+                                            <option value="64">64 x 64</option>
+                                            <option value="128">128 x 128</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="live-t-slider" class="slider-label">
+                                            <span>温度 T: <strong id="live-t-val">2.27</strong></span>
+                                            <span class="badge" id="phase-badge">臨界状態</span>
+                                        </label>
+                                        <input type="range" id="live-t-slider" min="0.1" max="5.0" step="0.05" value="2.27">
+                                        <div class="slider-ticks">
+                                            <span>0.1 (極低温)</span>
+                                            <span class="tc-tick">Tc ≈ 2.27</span>
+                                            <span>5.0 (高温)</span>
+                                        </div>
+                                    </div>
+                                    <div class="live-btn-group">
+                                        <button id="live-play-btn" class="btn btn-secondary btn-success">▶ 再生</button>
+                                        <button id="live-reset-btn" class="btn btn-secondary">🔄 初期化</button>
+                                    </div>
+                                </div>
+
+                                <div class="stats-grid">
+                                    <div class="stat-box">
+                                        <span class="stat-label">平均エネルギー密度 &langle;e&rangle;</span>
+                                        <span class="stat-value" id="live-e-val">-1.41</span>
+                                    </div>
+                                    <div class="stat-box">
+                                        <span class="stat-label">平均磁化率 &langle;|m|&rangle;</span>
+                                        <span class="stat-value" id="live-m-val">0.82</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: PHYSICAL QUANTITIES -->
+                    <div class="tab-panel" id="quantities-tab">
+                        <div class="panel-header">
+                            <h3>熱力学的物理量の温度依存性</h3>
+                            <p>モンテカルロ平均により算出された各物理量の推移です。臨界温度 $T_c \approx 2.27$ 付近で比熱や磁化率がピークを示し、磁化が急激に減少します。</p>
+                        </div>
+                        <div class="charts-grid">
+                            <div class="chart-card">
+                                <h4>磁化 &langle;|m|&rangle;</h4>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-magnetization"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h4>エネルギー密度 &langle;e&rangle;</h4>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-energy"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h4>磁化率 &chi;</h4>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-susceptibility"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <h4>比熱 C_v</h4>
+                                <div class="chart-wrapper">
+                                    <canvas id="chart-specific-heat"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: FINITE SIZE SCALING -->
+                    <div class="tab-panel" id="fss-tab">
+                        <div class="panel-header">
+                            <h3>有限サイズスケーリング（FSS）解析</h3>
+                            <p>
+                                <strong>Binder Cumulant（バインダー累積量） $U_4$:</strong><br>
+                                $U_4 = 1 - \frac{\langle m^4 \rangle}{3 \langle m^2 \rangle^2}$ は臨界点において格子サイズ $L$ に依存しない普遍的な値をとります。<br>
+                                異なる格子サイズ $L$ に対する $U_4(T)$ 曲線を描画すると、**すべての曲線が交差する点が臨界温度 $T_c$** に対応します。
+                            </p>
+                        </div>
+                        <div class="fss-layout">
+                            <div class="fss-chart-card">
+                                <h4>Binder Cumulant $U_4$ の温度依存性</h4>
+                                <div class="large-chart-wrapper">
+                                    <canvas id="chart-binder-cumulant"></canvas>
+                                </div>
+                            </div>
+                            <div class="fss-analysis-card">
+                                <h4>転移温度 $T_c$ 解析結果</h4>
+                                <div class="fss-result-box">
+                                    <div class="fss-metric">
+                                        <span class="fss-label">解析的な臨界温度 $T_c$ (理論値)</span>
+                                        <span class="fss-value cyan">2.2691 J/k_B</span>
+                                    </div>
+                                    <div class="fss-divider"></div>
+                                    <div class="fss-metric">
+                                        <span class="fss-label">シミュレーション推定温度 $T_c(L \to \infty)$</span>
+                                        <span class="fss-value text-glowing" id="fss-estimated-tc">---</span>
+                                    </div>
+                                </div>
+                                <div class="fss-explanation">
+                                    <p>左の図で、異なる $L$ の曲線が交差する温度が、本シミュレーションが指し示す臨界温度 $T_c$ です。測定精度（温度刻み・MCSステップ数）を上げることで、理論値 $2.269$ に極めて近い値に収束していきます。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: COMPUTATION COMPLEXITY O(L^2) -->
+                    <div class="tab-panel" id="scaling-tab">
+                        <div class="panel-header">
+                            <h3>計算時間のスケーリング検証: $O(L^2)$</h3>
+                            <p>1モンテカルロステップ（MCS）あたりの計算時間が、格子サイズ $L$ に対して $O(L^2)$ でスケールすることを確認します。</p>
+                        </div>
+                        <div class="scaling-layout">
+                            <div class="scaling-control-card">
+                                <h4>ベンチマーク設定</h4>
+                                <div class="form-group">
+                                    <label for="benchmark-l-input">測定サイズ L (カンマ区切り)</label>
+                                    <input type="text" id="benchmark-l-input" value="8, 16, 32, 64, 128" placeholder="例: 8, 16, 32, 64, 128">
+                                </div>
+                                <div class="form-group">
+                                    <label for="benchmark-mcs-input">計測ステップ数 (MCS)</label>
+                                    <input type="number" id="benchmark-mcs-input" value="200" step="50" min="10">
+                                </div>
+                                <button id="run-benchmark-btn" class="btn btn-secondary btn-glow">⚡ ベンチマーク実行</button>
+                                
+                                <div class="scaling-result-widget hidden" id="benchmark-result-widget">
+                                    <h4>検証結果</h4>
+                                    <div class="exponent-display">
+                                        <span class="exponent-label">フィッティングスケーリング指数 $b$</span>
+                                        <span class="exponent-val" id="scaling-exponent-val">---</span>
+                                        <span class="exponent-formula">Time &propto; L<sup>b</sup></span>
+                                    </div>
+                                    <div class="exponent-verdict" id="scaling-verdict-box">
+                                        指数 $b \approx 2.0$ は、1 MCS の計算時間がスピン総数 $N = L^2$ に完全に比例すること、すなわち **$O(L^2)$ スケーリング** が満たされていることを示しています。
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="scaling-chart-card">
+                                <h4>計算時間 vs 格子サイズ L (両対数プロット)</h4>
+                                <div class="large-chart-wrapper">
+                                    <canvas id="chart-scaling-complexity"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: UNIT TESTS -->
+                    <div class="tab-panel" id="tests-tab">
+                        <div class="panel-header">
+                            <h3>十分小さな L に対するユニットテスト</h3>
+                            <p>プログラムの物理的整合性（小サイズでの厳密なエネルギー値、詳細釣り合い、時間複雑度）を確認するテストをバックエンドで実行します。</p>
+                        </div>
+                        <div class="test-terminal-card">
+                            <div class="terminal-header">
+                                <div class="terminal-buttons">
+                                    <span class="term-btn close"></span>
+                                    <span class="term-btn minimize"></span>
+                                    <span class="term-btn expand"></span>
+                                </div>
+                                <span class="terminal-title">Ising Simulator Test Console</span>
+                                <button id="run-tests-btn" class="btn-terminal">🧪 テストを実行</button>
+                            </div>
+                            <div class="terminal-body" id="test-console-output">
+                                <span class="term-prompt">C:\PhysicsScienceCalculation></span> python -m unittest test_ising.py<br>
+                                <span class="term-placeholder">「テストを実行」をクリックすると、Pythonの unittest スイートがバックエンドで走り、結果がここにリアルタイムに出力されます。</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
