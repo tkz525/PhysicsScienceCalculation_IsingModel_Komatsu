@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>計算物理学ドキュメントポータル</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-start: #06b6d4;
+            --accent-end: #4f46e5;
+            --glow-color: rgba(6, 182, 212, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(79, 70, 229, 0.08) 0%, transparent 40%);
+        }
+
+        header {
+            padding: 3rem 2rem 1.5rem;
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.025em;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        main {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 2.5rem;
+            width: 100%;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 24px;
+            padding: 2.5rem;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(79, 70, 229, 0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 0;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(6, 182, 212, 0.3);
+            box-shadow: 
+                0 20px 40px -15px rgba(0, 0, 0, 0.5),
+                0 0 50px 0 var(--glow-color);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.35rem 0.85rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent-start);
+            border-radius: 9999px;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(6, 182, 212, 0.15);
+        }
+
+        .badge-alt {
+            background: rgba(79, 70, 229, 0.1);
+            color: #818cf8;
+            border: 1px solid rgba(79, 70, 229, 0.15);
+        }
+
+        .card h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            line-height: 1.3;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        .btn {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.9rem 1.8rem;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: white;
+            background: linear-gradient(135deg, var(--accent-start) 0%, var(--accent-end) 100%);
+            border-radius: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.25);
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn svg {
+            margin-left: 0.5rem;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover svg {
+            transform: translateX(4px);
+        }
+
+        footer {
+            padding: 2rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: rgba(148, 163, 184, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            width: 100%;
+        }
+
+        footer a {
+            color: rgba(148, 163, 184, 0.7);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        footer a:hover {
+            color: var(--accent-start);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>計算物理学ドキュメント</h1>
+        <p>Rust計算物理学チュートリアルのWeb版ブック、および強磁性イジング模型の相転移温度に関する解析メモを閲覧できます。</p>
+    </header>
+
+    <main>
+        <div class="grid">
+            <!-- Card 1: mdBook -->
+            <div class="card">
+                <div class="card-content">
+                    <span class="badge">Tutorial Book</span>
+                    <h2>Rust計算物理学チュートリアル</h2>
+                    <p>計算物理学を題材に、Rustで効率的な数値計算とアルゴリズム設計を学ぶための網羅的な教材です。Quartoにより数式やレイアウトが最適化されています。</p>
+                </div>
+                <a href="book/index.html" class="btn">
+                    ブックを読む
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </a>
+            </div>
+
+            <!-- Card 2: Ising Memo -->
+            <div class="card">
+                <div class="card-content">
+                    <span class="badge badge-alt">Research Memo</span>
+                    <h2>イジング模型 転移温度解析</h2>
+                    <p>2次元強磁性イジング模型の臨界温度解析に関する理論解と、モンテカルロ法による数値解析の手順・有限サイズスケーリング（FSS）の検証結果をまとめたメモです。</p>
+                </div>
+                <a href="Memo.html" class="btn">
+                    メモを読む
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Computational Physics Tutorial. Rendered by <a href="https://quarto.org/" target="_blank">Quarto CLI</a>.</p>
+    </footer>
+</body>
+</html>

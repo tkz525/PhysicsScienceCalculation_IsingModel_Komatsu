@@ -1,0 +1,213 @@
+# マルコフ連鎖モンテカルロ法 (MCMC)
+
+> [!NOTE]
+> **本節のポイント**
+>
+> - 高次元・複雑な分布をサンプリングするためのMCMCの原理と、定常分布への収束条件を理解する。
+> - メトロポリス法における詳細釣合い条件と受理確率の役割を数学的に学ぶ。
+> - 統計力学におけるボルツマン分布のサンプリングとしての物理的意味を習得する。
+> - バーンイン期間や自己相関など、実用上の診断手法を理解する。
+
+複雑な多変数関数や、規格化定数（物理学における分配関数）が未知の確率密度関数$p (x)$に従ってサンプリングを行いたい場合、これまでの単純なサンプリング手法は通用しなくなります。これを解決するのが**マルコフ連鎖モンテカルロ法(Markov Chain Monte Carlo, MCMC)** です。
+
+## メトロポリス法 (Metropolis Algorithm)
+
+MCMCの最も基本的かつ強力なアルゴリズムが**メトロポリス法**です。これは「現在の状態$x$から、次の状態$x'$を提案し、特定の確率でそれを受け入れるか決める」という手順を繰り返すことで、目標とする分布を定常分布として持つマルコフ連鎖を構成します。
+
+### アルゴリズムの原理：詳細釣合い
+
+マルコフ連鎖が目標とする分布$p (x)$に収束するためには、状態間の遷移確率$W (x arrow x')$が以下の**詳細釣合い条件(Detailed Balance)** を満たすことが十分条件です。
+
+$$ p(x) W(x arrow x') = p(x') W(x' arrow x) $$
+
+この式は、状態$x$から$x'$への遷移確率の流れが、逆向きの流れと完全に釣り合っていることを意味します。このとき、分布$p (x)$は時間の経過（ステップ数）に対して変化しない**定常分布**となります。
+
+メトロポリス法では、遷移確率を「候補の提案確率$g (x arrow x')$」と「受理確率$A (x arrow x')$」の積$W = g A$と考えます。提案分布が対称（$g (x arrow x') = g (x' arrow x)$）である場合、受理確率を次のように設定することで詳細釣合いが満たされます：
+
+$$ A(x arrow x') = min (1, p(x') / p(x)) $$
+
+### 物理学的解釈：ボルツマン分布
+
+物理学において、状態$x$のエネルギーを$E (x)$、逆温度を$beta = 1 / (k_B T)$とすると、平衡状態の確率は$p (x) prop exp(-beta E (x))$で与えられます。このとき、受理確率はエネルギー差$Delta E = E (x') - E (x)$を用いて次のように書けます：
+
+$$ A(x arrow x') = min (1, exp(-beta Delta E)) $$
+
+- $Delta E lt.eq 0$（エネルギーが下がる）なら、**必ず受理する**。
+- $Delta E > 0$（エネルギーが上がる）なら、**確率 $exp(-beta Delta E)$ で受理する**。
+
+これは、システムが基本的には安定な（エネルギーの低い）状態を目指しつつ、熱ゆらぎによって一時的に高いエネルギー状態へも遷移できることを示しています。
+
+## Rustによる実装
+
+1次元の正規分布$p (x) prop exp(-x^2 / 2)$を、規格化定数を無視してサンプリングします。
+
+```rust,noplayground
+use rand::RngExt;
+
+struct ChainResult {
+    samples: Vec<f64>,
+    accepted: usize,
+}
+
+struct SampleStats {
+    mean: f64,
+    variance: f64,
+    std_dev: f64,
+}
+
+fn standard_normal_unnormalized(x: f64) -> f64 {
+    (-0.5 * x * x).exp()
+}
+
+fn metropolis_step<R, F>(x: f64, delta: f64, rng: &mut R, target: &F) -> (f64, bool)
+where
+    R: RngExt + ?Sized,
+    F: Fn(f64) -> f64,
+{
+    // 1. 候補 x' を現在の位置 x の近傍 [-δ, δ] から提案
+    let x_next = x + rng.random_range(-delta..delta);
+
+    // 2. 受理確率 A = min(1, p(x') / p(x)) の計算
+    // 比をとることで、規格化定数がキャンセルされる
+    let ratio = target(x_next) / target(x);
+    let acceptance_prob = ratio.min(1.0);
+
+    // 3. 受理判定
+    if rng.random::<f64>() < acceptance_prob {
+        (x_next, true)
+    } else {
+        (x, false)
+    }
+}
+
+fn metropolis_sample<R, F>(
+    rng: &mut R,
+    x_init: f64,
+    delta: f64,
+    n_steps: usize,
+    target: F,
+) -> ChainResult
+where
+    R: RngExt + ?Sized,
+    F: Fn(f64) -> f64,
+{
+    let mut x = x_init;
+    let mut samples = Vec::with_capacity(n_steps);
+    let mut accepted = 0;
+
+    for _ in 0..n_steps {
+        let (x_next, was_accepted) = metropolis_step(x, delta, rng, &target);
+        x = x_next;
+        if was_accepted {
+            accepted += 1;
+        }
+        samples.push(x);
+    }
+
+    ChainResult { samples, accepted }
+}
+
+fn sample_stats(samples: &[f64]) -> SampleStats {
+    let n = samples.len() as f64;
+    let mean = samples.iter().sum::<f64>() / n;
+    let variance = samples
+        .iter()
+        .map(|&x| (x - mean).powi(2))
+        .sum::<f64>()
+        / n;
+
+    SampleStats {
+        mean,
+        variance,
+        std_dev: variance.sqrt(),
+    }
+}
+
+fn main() {
+    println!("目標分布: 標準正規分布 N(0, 1)");
+    println!("提案分布: 一様ランダムウォーク");
+    println!("受理確率: A = min(1, p(x')/p(x))\n");
+
+    let mut rng = rand::rngs::ThreadRng::default();
+
+    // パラメータ設定
+    let x_init = 10.0; // 分布の中心から遠い初期値（バーンインの効果を見るため）
+    let delta = 1.0; // 提案のステップ幅
+    let n_steps = 100_000;
+    let burn_in = n_steps / 10; // 最初の10%をバーンイン期間とする
+
+    println!("パラメータ:");
+    println!("  初期値 x₀ = {}", x_init);
+    println!("  ステップ幅 δ = {}", delta);
+    println!("  総ステップ数 = {}", n_steps);
+    println!("  バーンイン期間 = {} ステップ\n", burn_in);
+
+    // サンプリング実行
+    let chain = metropolis_sample(
+        &mut rng,
+        x_init,
+        delta,
+        n_steps,
+        standard_normal_unnormalized,
+    );
+
+    // 統計量の計算
+    let acceptance_rate = (chain.accepted as f64) / (n_steps as f64);
+
+    // バーンイン後のサンプルで統計を計算
+    let valid_samples = &chain.samples[burn_in..];
+    let valid_stats = sample_stats(valid_samples);
+
+    // バーンイン前の統計（比較のため）
+    let burnin_stats = sample_stats(&chain.samples[0..burn_in]);
+
+    // 結果の表示
+    println!("--- 結果 ---");
+    println!("受理率: {:.2}%", acceptance_rate * 100.0);
+    println!("  (理想的には 20-50% 程度が効率的)\n");
+
+    println!("バーンイン期間の平均: {:.6}", burnin_stats.mean);
+    println!("  (初期値 {} から定常分布へ収束中)\n", x_init);
+
+    println!("バーンイン後の統計 ({} サンプル):", valid_samples.len());
+    println!("  平均:       {:.6}  (理論値: 0.0)", valid_stats.mean);
+    println!("  標準偏差:   {:.6}  (理論値: 1.0)", valid_stats.std_dev);
+    println!("  分散:       {:.6}  (理論値: 1.0)", valid_stats.variance);
+
+    println!("\n理論値との誤差:");
+    println!("  平均の誤差: {:.6}", valid_stats.mean.abs());
+    println!("  標準偏差の誤差: {:.6}", (valid_stats.std_dev - 1.0).abs());
+}
+```
+
+### コードの解説
+
+- **初期値とバーンイン**: `x_init = 10.0`と、分布の中心($0.0$)から大きく離れた地点から開始しています。実行結果の「バーンイン期間の平均」が$10.0$に近い値から徐々に減少していく様子を見ることで、定常分布へ到達するまでの「探索過程」を数値的に確認できます。
+- **規格化定数の不要性**: 受理確率$A = min(1, p (x')) / (p (x))$ を計算する際、分子と分母で$p (x)$の共通の定数倍が打ち消し合います。この性質により、物理学の分配関数のように計算が困難な定数を知らなくても、エネルギー差（分布の比）だけでサンプリングが可能になります。
+- **統計的評価**: バーンイン後のサンプルのみを用いて平均と標準偏差を計算し、理論値（平均$0$, 標準偏差$1$）と比較しています。これにより、MCMCが正しく目標分布を再現できているかを検証しています。
+
+## 実践的な診断と注意点
+
+1. **バーンイン(Burn-in)**:
+   ランダムウォークが目標分布の領域に到達するまでの期間です。初期値が分布の裾野（エネルギーが高い場所）にあるほど、平衡状態に達するまで時間がかかります。
+2. **ステップ幅$delta$の調整**:
+   - $delta$が小さすぎると、移動が遅すぎて全領域を探索するのに時間がかかる。
+   - $delta$が大きすぎると、提案が分布の裾野ばかりになり、受理率が極端に下がって「停滞」する。
+     一般に受理率が **25%〜50%** 程度になるように$delta$を調整するのが効率的です。
+3. **自己相関時間**:
+   MCMCのサンプルは独立ではないため、推定誤差は単純な$1/sqrt(M)$よりも大きくなります。有効なサンプルサイズを見積もるには、自己相関関数の評価が必要です。
+
+## まとめ
+
+- **MCMC** は、状態遷移の繰り返しを通じて高次元・複雑な分布を探索する。
+- **メトロポリス法** は、受理確率を適切に設定することで**詳細釣合い**を実現し、目標分布への収束を保証する。
+- 分布の絶対値が分からなくても、**比さえ計算できればサンプリング可能**である点が、物理学における強力な武器となる。
+
+## 参考リンク
+
+- [Markov chain Monte Carlo - Wikipedia](https://en.wikipedia.org/wiki/Markov_chain_Monte_Carlo)
+- [Metropolis-Hastings algorithm - Wikipedia](https://en.wikipedia.org/wiki/Metropolis%E2%80%93Hastings_algorithm)
+
+---
+
+本章はこれで終わりです。[古典力学シミュレーション](../ch10-classical-mechanics/)からは、これらの数値手法で具体的な物理シミュレーションを解いてみましょう。

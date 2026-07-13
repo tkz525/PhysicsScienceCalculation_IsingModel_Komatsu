@@ -1,0 +1,46 @@
+/* 日本語テキストの改行制御 */
+
+main {
+  /* 文節単位での改行を有効化（Chrome 119+） */
+  word-break: auto-phrase;
+  /* 長い英単語やURLがはみ出す場合のフォールバック */
+  overflow-wrap: anywhere;
+  /* 句読点の改行ルールを厳格に */
+  line-break: strict;
+  /* 句読点・括弧の空白を自動調整（連続する約物の詰め処理） */
+  text-spacing-trim: space-all;
+}
+
+/* 段落、リスト、テーブルなどにも適用 */
+p,
+li,
+td,
+th,
+dd,
+dt,
+blockquote {
+  word-break: auto-phrase;
+  overflow-wrap: anywhere;
+  line-break: strict;
+  text-spacing-trim: space-all;
+}
+
+/* 見出しにも適用 */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  word-break: auto-phrase;
+  overflow-wrap: anywhere;
+  text-spacing-trim: space-all;
+}
+
+/* BudouX Web Components のスタイル */
+budoux-ja {
+  /* インライン要素として表示 */
+  display: inline;
+  /* BudouX が挿入する wbr での改行を有効化 */
+  word-break: normal;
+}

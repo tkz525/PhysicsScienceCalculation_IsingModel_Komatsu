@@ -1,0 +1,45 @@
+[book]
+title = "Rust計算物理学チュートリアル"
+authors = ["sakuraba07", "品岡寛"]
+language = "ja"
+src = "src"
+
+[preprocessor.run-rust]
+command = "python3 tools/mdbook_run_rust.py"
+timeout-seconds = 20
+output-label = "実行結果："
+
+[preprocessor.typst-math]
+fonts = [
+    "./theme/typst-fonts",
+]
+preamble = """
+#set page(width: auto, height: auto, margin: 0.2em, fill: none)
+#set text(font: ("Fira Math", "Harano Aji Gothic"), size: 15pt, lang: "ja")
+#show math.equation: set text(font: ("Fira Math", "Harano Aji Gothic"))
+#import "@preview/physica:0.9.8": *
+"""
+
+[preprocessor.last-changed]
+command = "mdbook-last-changed"
+renderer = ["html"]
+
+[output]
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/saitama-cond-mat/rust-computational-physics-tutorial"
+edit-url-template = "https://github.com/saitama-cond-mat/rust-computational-physics-tutorial/edit/main/{path}"
+additional-css = [
+    "theme/css/pagefind.css",
+    "theme/css/last-changed.css",
+    "theme/css/typst.css",
+    "theme/css/japanese.css",
+]
+additional-js = ["theme/budoux-loader.js"]
+
+[output.html.playground]
+runnable = false
+
+[output.html.search]
+enable = false

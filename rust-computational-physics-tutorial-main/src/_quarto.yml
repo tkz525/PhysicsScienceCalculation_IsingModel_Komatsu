@@ -1,0 +1,111 @@
+project:
+  type: book
+  output-dir: ../book_html
+
+book:
+  title: "Rust計算物理学チュートリアル"
+  author: "sakuraba07, 品岡寛"
+  language: ja
+  chapters:
+    - index.md
+    - part: "第1部: 基礎編"
+      chapters:
+        - ch01-introduction/README.md
+        - ch01-introduction/why-rust.md
+        - ch01-introduction/setup.md
+        - ch01-introduction/plotting.md
+        - ch01-introduction/how-to-use.md
+        - ch02-computer-model/README.md
+        - ch02-computer-model/cpu-memory-storage.md
+        - ch02-computer-model/latency-bandwidth-cache.md
+        - ch02-computer-model/data-layout.md
+        - ch02-computer-model/stack-heap.md
+        - ch03-rust-numerics/README.md
+        - ch03-rust-numerics/numbers-functions-tests.md
+        - ch03-rust-numerics/floating-point.md
+        - ch03-rust-numerics/vec-slices-ownership.md
+        - ch03-rust-numerics/result-modules.md
+        - ch04-multidimensional-data/README.md
+        - ch04-multidimensional-data/arrays-vectors.md
+        - ch04-multidimensional-data/memory-layout.md
+        - ch04-multidimensional-data/ndarray.md
+        - ch04-multidimensional-data/tenferro.md
+        - ch04-multidimensional-data/data-storage.md
+    - part: "第2部: 数値計算手法"
+      chapters:
+        - ch05-workspace-setup/README.md
+        - ch03-calculus/README.md
+        - ch03-calculus/differentiation.md
+        - ch03-calculus/integration.md
+        - ch03-calculus/gaussian-quadrature.md
+        - ch03-calculus/adaptive-integration.md
+        - ch04-linear-algebra/README.md
+        - ch04-linear-algebra/matrix-ops.md
+        - ch04-linear-algebra/linear-systems.md
+        - ch04-linear-algebra/eigenvalue.md
+        - ch04-linear-algebra/sparse.md
+        - ch05-nonlinear/README.md
+        - ch05-nonlinear/root-finding.md
+        - ch05-nonlinear/multivariable-newton.md
+        - ch05-nonlinear/optimization.md
+        - ch06-fourier/README.md
+        - ch06-fourier/dft-basics.md
+        - ch06-fourier/fft.md
+        - ch06-fourier/spectral-analysis.md
+        - ch07-ode/README.md
+        - ch07-ode/euler.md
+        - ch07-ode/runge-kutta.md
+        - ch07-ode/adaptive-step.md
+        - ch07-ode/boundary-value.md
+        - ch08-pde/README.md
+        - ch08-pde/finite-difference.md
+        - ch08-pde/diffusion.md
+        - ch08-pde/wave.md
+        - ch08-pde/elliptic.md
+        - ch09-monte-carlo/README.md
+        - ch09-monte-carlo/random-numbers.md
+        - ch09-monte-carlo/integration.md
+        - ch09-monte-carlo/importance-sampling.md
+        - ch09-monte-carlo/mcmc.md
+    - part: "第3部: 物理シミュレーション"
+      chapters:
+        - ch10-classical-mechanics/README.md
+        - ch10-classical-mechanics/particle-motion.md
+        - ch10-classical-mechanics/symplectic.md
+        - ch10-classical-mechanics/kepler.md
+        - ch10-classical-mechanics/molecular-dynamics.md
+        - ch11-fluid-dynamics/README.md
+        - ch11-fluid-dynamics/navier-stokes.md
+        - ch11-fluid-dynamics/finite-difference-cfd.md
+        - ch11-fluid-dynamics/lattice-boltzmann.md
+        - ch12-statistical-mechanics/README.md
+        - ch12-statistical-mechanics/ising-basics.md
+        - ch12-statistical-mechanics/metropolis.md
+        - ch12-statistical-mechanics/phase-transition.md
+        - ch12-statistical-mechanics/ising-exercise.md
+        - ch12-statistical-mechanics/other-models.md
+        - ch13-quantum-mechanics/README.md
+        - ch13-quantum-mechanics/schrodinger.md
+        - ch13-quantum-mechanics/bound-states.md
+        - ch13-quantum-mechanics/time-evolution.md
+        - ch13-quantum-mechanics/scattering.md
+    - part: "第4部: 高度なトピック"
+      chapters:
+        - ch14-parallel/README.md
+        - ch14-parallel/rayon.md
+        - ch14-parallel/simd.md
+        - ch14-parallel/profiling.md
+        - ch14-parallel/gpu-outlook.md
+    - part: "付録"
+      chapters:
+        - appendix/a-references.md
+        - appendix/b-crates.md
+        - appendix/c-debugging.md
+        - appendix/d-math-background.md
+        - appendix/e-high-precision.md
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    number-sections: true

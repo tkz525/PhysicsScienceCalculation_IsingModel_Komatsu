@@ -1,0 +1,165 @@
+/* Pagefind Search Wrapper */
+#mdbook-search-wrapper {
+    position: relative;
+    padding: 1rem;
+    background: var(--bg);
+    border-bottom: 1px solid var(--theme-popup-border);
+    z-index: 100;
+}
+
+#mdbook-search-wrapper.hidden {
+    display: none;
+}
+
+/* Pagefind UI Container */
+#pagefind-search {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Override Pagefind default styles to match mdbook theme */
+.pagefind-ui__search-input {
+    background: var(--searchbar-bg) !important;
+    border: 1px solid var(--searchbar-border-color) !important;
+    border-radius: 3px !important;
+    color: var(--searchbar-fg) !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9em !important;
+    width: 100% !important;
+}
+
+.pagefind-ui__search-input:focus {
+    outline: none !important;
+    border-color: var(--searchbar-border-color) !important;
+    box-shadow: 0 0 0 2px var(--searchbar-shadow-color) !important;
+}
+
+.pagefind-ui__search-input::placeholder {
+    color: var(--searchbar-fg) !important;
+    opacity: 0.6;
+}
+
+/* Search results styling */
+.pagefind-ui__results-area {
+    margin-top: 1rem;
+}
+
+.pagefind-ui__result {
+    background: var(--searchresults-bg) !important;
+    border: 1px solid var(--searchresults-border-color) !important;
+    border-radius: 3px !important;
+    margin-bottom: 0.5rem !important;
+    padding: 0.75rem !important;
+}
+
+.pagefind-ui__result:hover {
+    background: var(--searchresults-bg-hover) !important;
+}
+
+.pagefind-ui__result-link {
+    color: var(--searchresults-header-fg) !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+    display: block !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.pagefind-ui__result-link:hover {
+    text-decoration: underline !important;
+}
+
+.pagefind-ui__result-excerpt {
+    color: var(--fg) !important;
+    font-size: 0.9em !important;
+    line-height: 1.5 !important;
+}
+
+.pagefind-ui__result-excerpt mark {
+    background: var(--searchresults-mark-bg) !important;
+    color: var(--searchresults-mark-fg) !important;
+    padding: 0.1em 0.2em !important;
+    border-radius: 2px !important;
+    font-weight: 600 !important;
+}
+
+/* Message when no results found */
+.pagefind-ui__message {
+    color: var(--fg) !important;
+    padding: 1rem !important;
+    text-align: center !important;
+    font-style: italic !important;
+}
+
+/* Loading indicator */
+.pagefind-ui__loading {
+    color: var(--fg) !important;
+    text-align: center !important;
+    padding: 1rem !important;
+}
+
+/* Clear button */
+.pagefind-ui__search-clear {
+    background: none !important;
+    border: none !important;
+    color: var(--fg) !important;
+    cursor: pointer !important;
+    padding: 0.5rem !important;
+}
+
+.pagefind-ui__search-clear:hover {
+    opacity: 0.7 !important;
+}
+
+/* Result metadata (breadcrumbs, etc) */
+.pagefind-ui__result-nested {
+    margin-top: 0.5rem !important;
+    padding-left: 1rem !important;
+    border-left: 2px solid var(--searchresults-border-color) !important;
+}
+
+.pagefind-ui__result-title {
+    color: var(--searchresults-header-fg) !important;
+    font-weight: 600 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #mdbook-search-wrapper {
+        padding: 0.75rem;
+    }
+
+    .pagefind-ui__search-input {
+        font-size: 16px !important; /* Prevent zoom on iOS */
+    }
+}
+
+/* Dark theme specific adjustments */
+.coal .pagefind-ui__search-input,
+.navy .pagefind-ui__search-input,
+.ayu .pagefind-ui__search-input {
+    background: var(--searchbar-bg) !important;
+    border-color: var(--searchbar-border-color) !important;
+}
+
+/* Animation for search wrapper */
+#mdbook-search-wrapper {
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ensure search button is visible */
+#mdbook-search-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+}

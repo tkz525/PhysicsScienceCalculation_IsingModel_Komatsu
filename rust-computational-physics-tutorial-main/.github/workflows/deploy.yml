@@ -1,0 +1,65 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/cargo-install
+      MISE_FETCH_REMOTE_VERSIONS_TIMEOUT: "120"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # Required for mdbook-last-changed
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "mdbook-tools"
+          key: ${{ hashFiles('mise.toml') }}
+          cache-all-crates: true
+          cache-on-failure: true
+
+      - name: Install mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          install_args: >-
+            cargo:mdbook
+            cargo:mdbook-typst-math
+            cargo:mdbook-last-changed
+            cargo:pagefind
+          cache: true
+          cache_key: mise-v1-${{ runner.os }}-deploy-${{ hashFiles('mise.toml') }}
+
+      - name: Build
+        run: mise run build-core
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "book"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

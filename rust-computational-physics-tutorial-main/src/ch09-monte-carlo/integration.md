@@ -1,0 +1,133 @@
+# モンテカルロ積分
+
+> [!NOTE]
+> **本節のポイント**
+>
+> - 期待値と積分の関係を理解し、大数の法則に基づくモンテカルロ積分の原理を学ぶ。
+> - 中心極限定理に基づき、独立サンプルで分散が有限な場合に積分の統計誤差が $O(1/sqrt(M))$ で収束することを導く。
+> - `rayon`を用いた並列化の際、乱数生成器を各スレッドで独立に管理する手法（`map_init`）を習得する。
+
+乱数を用いて定積分の近似値を求める手法を**モンテカルロ積分**と呼びます。
+
+## 数学的原理
+
+領域$V$における関数$f (vb(x))$の積分$I = integral_V f (vb(x)) dd(vb(x))$を考えます。
+
+### 1. 大数の法則による収束
+
+確率変数$vb(X)$が領域$V$内で一様分布$p (vb(x)) = 1/V$に従うとき、関数$f (vb(X))$の期待値$E[f]$は以下のようになります。
+$$
+E[f] = integral_V f(vb(x)) p(vb(x)) dd(vb(x)) = 1/V integral_V f(vb(x)) dd(vb(x)) = I/V
+$$
+
+したがって、積分値$I$は期待値の$V$倍、つまり$I = V E[f]$です。**大数の法則(Law of Large Numbers)** により、独立にサンプリングされた$M$個の点に対する標本平均は期待値に収束するため、以下の推定量$I_M$が得られます。
+$$
+I_M = V/M sum_(i=1)^M f(vb(x)_i) arrow.long I quad (M arrow.long infinity)
+$$
+
+### 2. 誤差評価と中心極限定理
+
+モンテカルロ積分の誤差は、**中心極限定理(Central Limit Theorem)** によって評価できます。推定量の分散$V[I_M]$は、元の関数の分散$V[f]$を用いて以下のように表されます。
+$$
+V[I_M] = V[ V/M sum f(vb(x)_i) ] = V^2 / M^2 sum V[f(vb(x)_i)] = V^2 / M^2 dot M V[f] = (V^2 V[f]) / M
+$$
+
+標本平均の標準偏差（統計誤差）はこれの平方根をとって$V sqrt(V[f] / M)$となります。
+この結果は、独立サンプルで分散$V[f]$が有限なら、標本数に対する収束率が$O(1/sqrt(M))$になることを示しています。この収束率そのものは空間次元$d$を直接含みませんが、分散$V[f]$や有効なサンプリング分布は次元と被積分関数に強く依存します。したがって、高次元積分でモンテカルロ法が有利になるのは、格子法のように点数が$N^d$で増えることを避けられる一方で、分散を抑える工夫が必要になるためです。
+
+## 実装例1：ヒット・オア・ミス法（円周率の推定）
+
+領域内に点を打ち、特定の条件を満たす「命中」の割合から面積を求める手法です。
+
+```rust,noplayground
+use rand::RngExt;
+
+fn estimate_pi_hit_or_miss<R>(rng: &mut R, m: usize) -> f64
+where
+    R: RngExt + ?Sized,
+{
+    let mut hits = 0;
+
+    for _ in 0..m {
+        // [0, 1) の範囲で一様にサンプリング
+        let x: f64 = rng.random();
+        let y: f64 = rng.random();
+
+        // 単位円の内部 (x^2 + y^2 <= 1) にあるか判定
+        if x * x + y * y <= 1.0 {
+            hits += 1;
+        }
+    }
+
+    // 正方形の面積 (1.0) に対する円の面積 (pi/4) の比を利用
+    // (hits / m) approx (pi / 4)  =>  pi approx 4 * (hits / m)
+    4.0 * (hits as f64) / (m as f64)
+}
+
+fn main() {
+    let m = 1_000_000;
+    let mut rng = rand::rngs::ThreadRng::default();
+    let pi_est = estimate_pi_hit_or_miss(&mut rng, m);
+
+    println!("Estimated pi = {:.6}", pi_est);
+}
+```
+
+実行ごとに出力結果が変わりますが、おおむね$3.14$に近い値が得られるはずです。サンプル数を増やすと、より精度の高い推定値が得られますが、誤差の収束は$1/sqrt(M)$であるため、精度を10倍にするにはサンプル数を100倍にする必要があります。
+
+## 実装例2：並列化による高速化(`rayon`)
+
+モンテカルロ法は各試行が完全に独立しているため、並列化の効果が非常に高い手法です。しかし、Rustの乱数生成器（`Rng`）は一般にスレッド間で共有できない（`Sync`ではない）ため、工夫が必要です。
+
+### `rayon` と `map_init` の活用
+
+```rust,noplayground
+use rand::Rng;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+fn estimate_pi_parallel(m: u64) -> f64 {
+    // 並列イテレータによる集計
+    let hits: u64 = (0..m)
+        .into_par_iter()
+        .map_init(
+            rand::rngs::ThreadRng::default, // 各スレッドの初期化時に一度だけ呼ばれる
+            |rng, _| {
+                // 各要素の処理で呼ばれる
+                let x: f64 = rng.random();
+                let y: f64 = rng.random();
+                if x * x + y * y <= 1.0 { 1 } else { 0 }
+            },
+        )
+        .sum();
+
+    4.0 * (hits as f64) / (m as f64)
+}
+
+fn main() {
+    let m = 100_000_000;
+    let pi_est = estimate_pi_parallel(m);
+
+    println!("Estimated pi = {:.8}", pi_est);
+}
+```
+
+- **`into_par_iter()`**: イテレータを並列イテレータに変換し、処理をマルチスレッドに自動分割します。
+- **`map_init`**: 各スレッド専用の「ローカル状態（ここでは乱数生成器）」を持たせるために使用します。乱数生成器は内部状態を更新するため可変（`mut`）である必要があり、スレッド間で共有できません。`map_init` を使うことでスレッドごとに独立した生成器が用意され、安全かつ高速に並列計算が行えます。
+
+実装例1と比較して、サンプル数を100倍に増やしても、実行時間は数倍程度に抑えられるため、モンテカルロ法の大規模計算において並列化が非常に効果的であることがわかります。
+
+## まとめ
+
+- **モンテカルロ積分**は、数学的には積分を確率変数の期待値として捉え、大数の法則を利用して近似する手法である。
+- **統計誤差$1/sqrt(M)$** の収束は遅いため、大規模計算では`rayon`などを用いた並列化が実用的である。
+- 格子法のような$N^d$の点数増加を直接は受けないため、現代物理学の多体問題や統計力学で重要である。ただし、分散や有効サンプル数の評価は不可欠である。
+
+## 参考リンク
+
+- [Monte Carlo integration - Wikipedia](https://en.wikipedia.org/wiki/Monte_Carlo_integration)
+- [Law of large numbers - Wikipedia](https://en.wikipedia.org/wiki/Law_of_large_numbers)
+- [Central limit theorem - Wikipedia](https://en.wikipedia.org/wiki/Central_limit_theorem)
+
+---
+
+[次節](./importance-sampling.md)では、この$1/sqrt(M)$の収束を「定数倍」のレベルで劇的に改善する手法である「重点サンプリング」を学びます。

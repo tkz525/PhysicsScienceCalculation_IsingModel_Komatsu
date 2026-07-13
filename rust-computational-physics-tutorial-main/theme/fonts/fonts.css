@@ -1,0 +1,32 @@
+/* Inter and Noto Sans JP from Google Fonts */
+/* Source Code Pro is under the Open Font License. See https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL */
+/* HackGen is under the SIL Open Font License. See https://github.com/yuru7/HackGen */
+
+/* Google Fonts - @import rules must be at the top */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700;800&display=swap");
+
+/* HackGenConsoleNF - Japanese programming font */
+@font-face {
+  font-family: "HackGenConsoleNF";
+  font-style: normal;
+  font-weight: 400;
+  src: url('{{ resource "fonts/HackGenConsoleNF-Regular.woff2" }}')
+    format("woff2");
+}
+
+@font-face {
+  font-family: "HackGenConsoleNF";
+  font-style: normal;
+  font-weight: 700;
+  src: url('{{ resource "fonts/HackGenConsoleNF-Bold.woff2" }}') format("woff2");
+}
+
+/* source-code-pro-500 - latin_vietnamese_latin-ext_greek_cyrillic-ext_cyrillic */
+@font-face {
+  font-family: "Source Code Pro";
+  font-style: normal;
+  font-weight: 500;
+  src: url('{{ resource "fonts/source-code-pro-v11-all-charsets-500.woff2" }}')
+    format("woff2");
+}

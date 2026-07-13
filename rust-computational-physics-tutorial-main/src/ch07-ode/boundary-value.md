@@ -1,0 +1,124 @@
+# 境界値問題
+
+> [!NOTE]
+> **本節のポイント**
+>
+> - 初期値問題(IVP)と境界値問題(BVP)の違いを理解する。
+> - 境界値問題を初期値問題に帰着させる「シューティング法」の原理を学ぶ。
+> - [二分法とニュートン法](../ch05-nonlinear/root-finding.md)で学んだ「求根アルゴリズム」との密接な関連性を理解する。
+
+これまで扱ってきた微分方程式は、ある時刻$t=0$での状態（位置や速度）がすべて分かっていて、そこから未来を予測する**初期値問題 (Initial Value Problem, IVP)** でした。
+
+しかし、物理学では「始点と終点の位置が決まっている」ような問題も頻繁に現れます。これを**境界値問題 (Boundary Value Problem, BVP)** と呼びます。
+
+## 境界値問題の例
+
+- **静的な弦のたわみ**: 両端が固定された弦の形状。$y (0) = 0, y (L) = 0$
+- **熱伝導**: 棒の両端の温度が固定されている場合の内部温度分布。
+- **量子力学の束縛状態**: 波動関数が無限遠でゼロになる（または境界でゼロになる）条件。$psi (0) = 0, psi (L) = 0$
+
+## シューティング法 (Shooting Method)
+
+境界値問題を解くための最も直感的な手法が**シューティング法（射撃法）** です。これは、境界値問題を「未知の初期条件を探す初期値問題」として解く手法です。
+
+### 原理
+
+2階微分方程式$dv(x, t, 2) = f (t, x, v)$において、以下の境界条件が与えられているとします。
+$$ x(t_0) = x_0, quad x(t_1) = x_1 $$
+
+この問題を初期値問題として解くには、初期速度$v (t_0) = alpha$が必要ですが、これは与えられていません。
+
+1. 初期速度の値を $alpha$ と仮定し、初期値問題$x (t_0) = x_0, v (t_0) = alpha$を$t_1$まで解きます。
+2. $t_1$における計算結果を$x (t_1; alpha)$とします。
+3. 目的の境界条件$x_1$との差（誤差）を計算します： $E (alpha) = x (t_1; alpha) - x_1$
+4. この$E (alpha) = 0$となるような$alpha$を、[二分法とニュートン法](../ch05-nonlinear/root-finding.md)で学んだ**求根アルゴリズム**（二分法やニュートン法）を用いて探索します。
+
+まさに「標的（境界条件）に当たるように、大砲の角度（初期速度）を調整しながら試射を繰り返す」イメージです。
+
+### Rustによる実装例
+
+例として、単振動の方程式$dv(x, t, 2) = -x$において、境界条件$x (0) = 0, x (pi/2) = 1$を満たす解をシューティング法で求めてみましょう。解析解は$x (t) = sin(t)$であり、初期速度は$v (0) = 1$となるはずです。
+
+```rust,noplayground
+use ndarray::{Array1, arr1};
+use std::f64::consts::PI;
+
+/// 4次のルンゲ＝クッタ法による1ステップの更新
+fn rk4_step<F>(state: &Array1<f64>, t: f64, h: f64, f: F) -> Array1<f64>
+where
+    F: Fn(f64, &Array1<f64>) -> Array1<f64>,
+{
+    let k1 = f(t, state);
+    let k2 = f(t + h * 0.5, &(state + &k1 * (h * 0.5)));
+    let k3 = f(t + h * 0.5, &(state + &k2 * (h * 0.5)));
+    let k4 = f(t + h, &(state + &k3 * h));
+    state + (&k1 + &k2 * 2.0 + &k3 * 2.0 + &k4) * (h / 6.0)
+}
+
+/// 初期値問題 (IVP) として t0 から t1 まで積分し、終端の状態を返す
+fn solve_ivp(v0: f64) -> f64 {
+    let system = |_t: f64, state: &Array1<f64>| arr1(&[state[1], -state[0]]);
+    let mut state = arr1(&[0.0, v0]); // x(0)=0, v(0)=v0
+    let mut t = 0.0;
+    let t1 = PI / 2.0;
+    let h = 0.01;
+
+    while t < t1 {
+        let step_h = if t + h > t1 { t1 - t } else { h };
+        state = rk4_step(&state, t, step_h, system);
+        t += step_h;
+    }
+    state[0] // 終端位置 x(t1) を返す
+}
+
+fn main() {
+    let target_x1 = 1.0; // 目標: x(pi/2) = 1
+    let tolerance = 1e-8;
+
+    // 二分法による初期速度 v0 の探索
+    let mut low = 0.0;
+    let mut high = 2.0;
+    let mut v0 = (low + high) / 2.0;
+
+    println!("{:<5} {:<15} {:<15}", "Iter", "v0 (Guess)", "x(pi/2) Error");
+    println!("{}", "-".repeat(40));
+
+    for i in 0..50 {
+        let x_final = solve_ivp(v0);
+        let error = x_final - target_x1;
+
+        println!("{:<5} {:<15.8} {:<15.2e}", i, v0, error);
+
+        if error.abs() < tolerance {
+            break;
+        }
+
+        if error < 0.0 {
+            low = v0;
+        } else {
+            high = v0;
+        }
+        v0 = (low + high) / 2.0;
+    }
+
+    println!("\n結果: 求める初期速度 v(0) = {:.8}", v0);
+}
+```
+
+## シューティング法の限界
+
+シューティング法は直感的で実装も比較的容易ですが、以下のような課題があります。
+
+- **不安定性**: 微分方程式が「硬い(stiff)」場合、初期値 $alpha$ の極めて微小な変化が、終端 $t_1$ で爆発的な差となって現れることがあり、求根アルゴリズムが収束しなくなります。
+- **多変数の困難さ**: 高次元の境界値問題では、探索すべき初期パラメータが増え、求根が非常に困難になります。
+
+このような場合、領域全体を格子に分割して一気に解く**有限差分法 (Finite Difference Method)** や、変分法に基づいた手法が用いられます。これらについては、[偏微分方程式](../ch08-pde/)で詳しく扱います。
+
+## 参考リンク
+
+- [Boundary value problem - Wikipedia](https://en.wikipedia.org/wiki/Boundary_value_problem)
+- [Shooting method - Wikipedia](https://en.wikipedia.org/wiki/Shooting_method)
+
+---
+
+[常微分方程式](../ch07-ode/)では、物理現象の記述に欠かせない数値解法を学びました。[偏微分方程式](../ch08-pde/)からは、空間的な広がりを持つ現象へと進んでいきます。

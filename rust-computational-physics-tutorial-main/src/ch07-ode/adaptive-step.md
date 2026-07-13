@@ -1,0 +1,132 @@
+# 適応型刻み幅制御
+
+> [!NOTE]
+> **本節のポイント**
+>
+> - 誤差の推定値に基づいて時間刻み幅$h$を自動的に調整する仕組みを理解する。
+> - 埋め込み型ルンゲ＝クッタ法（RKF45, DP5など）の原理を学ぶ。
+> - 物理現象の変化の激しさに応じた効率的な計算手法を習得する。
+
+これまで時間刻み幅$h$（ステップサイズ）は固定定数として扱ってきました。しかし、多くの物理現象において、変化の激しさは一定ではありません。
+
+- **変化が激しいとき**: 天体が近接する場合や、爆発的な反応が起きる時などは、$h$を小さくして精度を確保したい。
+- **変化が緩やかなとき**: 平衡状態に近い時などは、$h$を大きくして計算時間を短縮したい。
+
+これを自動的に行うのが**適応型刻み幅制御 (Adaptive Step Size Control)** です。
+
+## 原理：埋め込み型ルンゲ＝クッタ法
+
+適応型制御の最も一般的な方法は、**2つの異なる次数の近似解を同時に計算し、その差を誤差の推定値として利用する**ことです。これを「埋め込み型(Embedded)」と呼びます。
+
+代表的なものに、**ルンゲ＝クッタ＝フェールベルグ法(Runge-Kutta-Fehlberg, RKF45)** や、その改良版である **Dormand-Prince法(DP5)** があります。
+
+### アルゴリズムの概要
+
+例えばRKF45では、共通の中間変数（$k_i$）を使い回しながら、以下の2つの解を計算します。
+
+1. **4次精度の近似解**: $vb(x)_(n+1)^( (4) )$
+2. **5次精度の近似解**: $vb(x)_(n+1)^( (5) )$
+
+この2つの差$Delta$が、現在のステップにおける打ち切り誤差の目安になります。
+
+$$ Delta = norm( vb(x)_(n+1)^( (5) ) - vb(x)_(n+1)^( (4) ) ) $$
+
+### ステップサイズの調整戦略
+
+許容誤差を$epsilon$とします。
+
+1. **$Delta lt.eq epsilon$ の場合（成功）**:
+   精度は十分です。このステップを採用（通常はより精度の高い$vb(x)_(n+1)^( (5) )$を使用）し、次のステップへ進みます。
+2. **$Delta > epsilon$ の場合（失敗）**:
+   誤差が大きすぎます。このステップを破棄し、$h$を小さくして計算をやり直します。
+
+新しいステップ幅$h_("next")$は、一般に以下の式で決定します。
+
+$$ h_("next") = h_("old") times S times ( epsilon / Delta )^(1/5) $$
+
+ここで$S$は安全率（例：0.9）です。
+
+## Rustにおける実装： `ode_solvers`クレート
+
+適応型ステップ制御を自前で実装する場合、多くの係数（ブッチャー配列）を正確に記述する必要があり、バグの温床になりがちです。実務や高度な研究では、信頼性の高いライブラリを利用するのが賢明です。Rustでは[`ode_solvers`](https://docs.rs/ode_solvers/)が広く使われています。
+
+### ライブラリの利用例
+
+```toml
+[dependencies]
+ode_solvers = "0.6"
+```
+
+```rust,noplayground
+use ode_solvers::{Dopri5, System, Vector2};
+
+type State = Vector2<f64>;
+
+struct Oscillator;
+
+impl System<f64, State> for Oscillator {
+    fn system(&self, _t: f64, y: &State, dy: &mut State) {
+        // 単振動: dx/dt = v, dv/dt = -x
+        dy[0] = y[1];
+        dy[1] = -y[0];
+    }
+}
+
+fn oscillator_initial_state() -> State {
+    State::new(1.0, 0.0)
+}
+
+fn main() {
+    let system = Oscillator;
+    let y0 = oscillator_initial_state();
+    let (t_start, t_end) = (0.0, 10.0);
+
+    // Dormand-Prince 5(4) 法を使用
+    let mut stepper = Dopri5::new(system, t_start, t_end, 0.1, y0, 1.0e-8, 1.0e-8);
+    let res = stepper.integrate();
+
+    if let Ok(stats) = res {
+        println!(
+            "Integration finished. Total steps: {}",
+            stats.accepted_steps
+        );
+        let values = stepper.y_out();
+        println!("Final state: {:?}", values.last().unwrap());
+    }
+}
+```
+
+### コードの解説
+
+1. **システムの定義**: `System`トレイトを実装することで、解きたい微分方程式を定義します。`system`メソッド内で、現在の状態`y`から微分値`dy`を計算します。
+2. **ソルバーの初期化**: `Dopri5::new`を使用してソルバーを生成します。
+   - `0.1`: 最初のステップ幅（その後自動調整されます）。
+   - `1.0e-8, 1.0e-8`: それぞれ **相対許容誤差 (Relative Tolerance)** と **絶対許容誤差 (Absolute Tolerance)** です。ソルバーは推定誤差がこの範囲内に収まるようにステップ幅を制御します。
+3. **計算の実行**: `stepper.integrate()`を呼ぶことで、終点までの計算を一気に行います。
+4. **結果の取得**: `stepper.x_out()`で時刻のリストを、`stepper.y_out()`で各時刻における状態ベクトルのリストを取得できます。
+
+## メリットとデメリット
+
+| 特徴           | 固定刻み幅 (Fixed Step)       | 適応型刻み幅 (Adaptive Step)                   |
+| :------------- | :---------------------------- | :--------------------------------------------- |
+| **使いやすさ** | hの値を自分で決める必要がある | 許容誤差を指定するだけでhが自動決定される      |
+| **計算効率**   | 常に一定の負荷                | 必要な箇所にだけ計算資源を集中させるため効率的 |
+| **精度保証**   | 計算が終わるまで不明          | 指定した許容誤差内に収まるよう制御される       |
+| **出力データ** | 等間隔（プロットしやすい）    | 不等間隔（補間が必要な場合がある）             |
+
+## まとめ
+
+- **適応型刻み幅制御**は、誤差を推定しながらステップ幅を動的に変更する。
+- **埋め込み型手法**を用いることで、少ない追加コストで誤差推定が可能。
+- 変化の激しい系や、長時間のシミュレーションにおいて、精度と速度を両立させるための必須技術である。
+
+## 参考リンク
+
+- [Adaptive step size - Wikipedia](https://en.wikipedia.org/wiki/Adaptive_step_size)
+- [Runge-Kutta-Fehlberg method - Wikipedia](https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method)
+- [Dormand-Prince method - Wikipedia](https://en.wikipedia.org/wiki/Dormand%E2%80%93Prince_method)
+- [`ode_solvers` documentation](https://docs.rs/ode_solvers/)
+
+---
+
+[次節](./boundary-value.md)では、初期値問題とは異なる「境界値問題」について学びます。
